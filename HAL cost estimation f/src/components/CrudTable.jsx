@@ -41,6 +41,11 @@ function CrudTable({
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const handlePatch = (patch) => {
+    if (!patch || typeof patch !== "object" || Array.isArray(patch)) return;
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -112,7 +117,13 @@ function CrudTable({
               {col.renderInput ? (
                 col.renderInput({
                   value: form[col.key] ?? "",
-                  onChange: (value) => handleChange(col.key, value),
+                  onChange: (value) => {
+                    if (value && typeof value === "object" && !Array.isArray(value)) {
+                      handlePatch(value);
+                      return;
+                    }
+                    handleChange(col.key, value);
+                  },
                   form,
                 })
               ) : (

@@ -7,16 +7,13 @@ function MhrPage() {
   const [operationTypes, setOperationTypes] = useState([]);
   const [duties, setDuties] = useState([]);
   const [machines, setMachines] = useState([]);
-  
-  // MHR Calculator state
-  const [calculatorForm, setCalculatorForm] = useState({
-    investment_cost: "",
-    power_rating_kw: "",
-    available_hours_per_annum: "",
-    machine_category: "conventional"
-  });
-  const [calculationResult, setCalculationResult] = useState(null);
-  const [isCalculating, setIsCalculating] = useState(false);
+
+  const inferMachineCategory = (machineId) => {
+    const idNum = Number(machineId);
+    const m = machines.find((x) => x.id === idNum);
+    const name = (m?.name ?? "").toString().toLowerCase();
+    return name.includes("cnc") ? "cnc" : "conventional";
+  };
 
   useEffect(() => {
     const fetchLookups = async () => {
@@ -53,121 +50,8 @@ function MhrPage() {
     fetchMhrData();
   }, []);
 
-  const handleCalculate = async () => {
-    if (!calculatorForm.investment_cost || !calculatorForm.power_rating_kw || !calculatorForm.available_hours_per_annum) {
-      alert("Please fill in all required fields");
-      return;
-    }
-
-    setIsCalculating(true);
-    try {
-      const result = await calculateMhrFromInputs({
-        investment_cost: parseFloat(calculatorForm.investment_cost),
-        power_rating_kw: parseFloat(calculatorForm.power_rating_kw),
-        available_hours_per_annum: parseFloat(calculatorForm.available_hours_per_annum),
-        machine_category: calculatorForm.machine_category
-      });
-      setCalculationResult(result);
-    } catch (error) {
-      console.error("Calculation failed:", error);
-      alert("Calculation failed. Please check your inputs.");
-    } finally {
-      setIsCalculating(false);
-    }
-  };
-
-  const handleInputChange = (field, value) => {
-    setCalculatorForm(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
   return (
     <div className="space-y-6 w-full">
-      {/* MHR Calculator Section */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-bold mb-4 text-slate-800">MHR Calculator</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-end mb-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Investment Cost (I) *
-            </label>
-            <input
-              type="number"
-              value={calculatorForm.investment_cost}
-              onChange={(e) => handleInputChange("investment_cost", e.target.value)}
-              className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
-              placeholder="e.g., 2000000"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Power Rating (kW) *
-            </label>
-            <input
-              type="number"
-              value={calculatorForm.power_rating_kw}
-              onChange={(e) => handleInputChange("power_rating_kw", e.target.value)}
-              className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
-              placeholder="e.g., 5"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Available Hours/Annum *
-            </label>
-            <input
-              type="number"
-              value={calculatorForm.available_hours_per_annum}
-              onChange={(e) => handleInputChange("available_hours_per_annum", e.target.value)}
-              className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
-              placeholder="e.g., 3600"
-            />
-          </div>
-          
-          <div className="col-span-2 lg:col-span-1">
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Machine Category *
-            </label>
-            <select
-              value={calculatorForm.machine_category}
-              onChange={(e) => handleInputChange("machine_category", e.target.value)}
-              className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
-            >
-              <option value="conventional">Conventional (7% downtime)</option>
-              <option value="cnc">CNC (15% downtime)</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-start gap-3">
-          <button
-            onClick={handleCalculate}
-            disabled={isCalculating}
-            className="bg-sky-600 text-white px-5 py-2 rounded-md hover:bg-sky-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors text-sm"
-          >
-            {isCalculating ? "Calculating..." : "Calculate MHR"}
-          </button>
-        </div>
-        
-        {/* Calculation Results */}
-        {calculationResult && (
-          <div className="mt-6 p-4 bg-slate-50 rounded-lg">
-            <h3 className="text-lg font-semibold mb-3 text-slate-800">Calculation Results</h3>
-
-            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <h4 className="font-semibold text-green-800 mb-2">Final Machine Hour Rate</h4>
-              <p className="text-2xl font-bold text-green-700">
-                Rs {calculationResult.total_machine_hour_rate} per hour
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Original CRUD Table */}
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-xl font-bold mb-4 text-slate-800">MHR Configuration</h2>
@@ -228,10 +112,45 @@ function MhrPage() {
                 const m = machines.find((mach) => mach.id === item.machine_id);
                 return m?.name ?? item.machine_id ?? "-";
               },
-              renderInput: ({ value, onChange }) => (
+              renderInput: ({ value, onChange, form }) => (
                 <select
                   value={value}
-                  onChange={(e) => onChange(e.target.value)}
+                  onChange={async (e) => {
+                    const nextMachineId = e.target.value;
+                    const patch = { machine_id: nextMachineId };
+
+                    const investment = parseFloat(form.investment_cost);
+                    const kw = parseFloat(form.elect_power_rating);
+                    const hours = parseFloat(form.available_hrs_per_annum);
+                    const category = inferMachineCategory(nextMachineId);
+
+                    if (Number.isFinite(kw)) {
+                      patch.elect_power_charges = String((kw * 5).toFixed(2));
+                    }
+
+                    if (Number.isFinite(hours)) {
+                      const downtime = category === "conventional" ? 0.07 : 0.15;
+                      patch.utilization_hrs_year = String((hours * (1 - downtime)).toFixed(2));
+                    }
+
+                    if (Number.isFinite(investment) && Number.isFinite(kw) && Number.isFinite(hours)) {
+                      try {
+                        const result = await calculateMhrFromInputs({
+                          investment_cost: investment,
+                          power_rating_kw: kw,
+                          available_hours_per_annum: hours,
+                          machine_category: category,
+                        });
+                        if (result?.total_machine_hour_rate != null) {
+                          patch.machine_hr_rate = String(result.total_machine_hour_rate);
+                        }
+                      } catch {
+                        // ignore
+                      }
+                    }
+
+                    onChange(patch);
+                  }}
                   className="px-2.5 py-1.5 rounded-md border border-slate-600 text-xs md:text-sm bg-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-sky-500/70 focus:border-sky-500"
                 >
                   <option value="">Select Machine</option>
@@ -243,12 +162,189 @@ function MhrPage() {
                 </select>
               ),
             },
-            { key: "investment_cost", label: "Investment Cost" },
-            { key: "elect_power_rating", label: "Electrical Power Rating" },
-            { key: "elect_power_charges", label: "Electrical Power Charges" },
-            { key: "available_hrs_per_annum", label: "Available Hrs/Annum" },
-            { key: "utilization_hrs_year", label: "Utilization Hrs/Year" },
-            { key: "machine_hr_rate", label: "Machine Hour Rate" },
+            {
+              key: "investment_cost",
+              label: "Investment Cost",
+              renderInput: ({ value, onChange, form }) => (
+                <input
+                  type="number"
+                  value={value}
+                  onChange={async (e) => {
+                    const nextInvestment = e.target.value;
+
+                    const patch = { investment_cost: nextInvestment };
+                    const investment = parseFloat(nextInvestment);
+                    const kw = parseFloat(form.elect_power_rating);
+                    const hours = parseFloat(form.available_hrs_per_annum);
+                    const category = inferMachineCategory(form.machine_id);
+
+                    if (Number.isFinite(kw)) {
+                      patch.elect_power_charges = String((kw * 5).toFixed(2));
+                    }
+
+                    if (Number.isFinite(hours)) {
+                      const downtime = category === "conventional" ? 0.07 : 0.15;
+                      patch.utilization_hrs_year = String((hours * (1 - downtime)).toFixed(2));
+                    }
+
+                    if (Number.isFinite(investment) && Number.isFinite(kw) && Number.isFinite(hours)) {
+                      try {
+                        const result = await calculateMhrFromInputs({
+                          investment_cost: investment,
+                          power_rating_kw: kw,
+                          available_hours_per_annum: hours,
+                          machine_category: category,
+                        });
+                        if (result?.total_machine_hour_rate != null) {
+                          patch.machine_hr_rate = String(result.total_machine_hour_rate);
+                        }
+                      } catch {
+                        // ignore
+                      }
+                    }
+
+                    onChange(patch);
+                  }}
+                  placeholder="Investment Cost"
+                  className="px-2.5 py-1.5 rounded-md border border-slate-300 text-xs md:text-sm bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500"
+                />
+              ),
+            },
+            {
+              key: "elect_power_rating",
+              label: "Electrical Power Rating",
+              renderInput: ({ value, onChange, form }) => (
+                <input
+                  type="number"
+                  value={value}
+                  onChange={async (e) => {
+                    const nextKw = e.target.value;
+                    const patch = { elect_power_rating: nextKw };
+
+                    const investment = parseFloat(form.investment_cost);
+                    const kw = parseFloat(nextKw);
+                    const hours = parseFloat(form.available_hrs_per_annum);
+                    const category = inferMachineCategory(form.machine_id);
+
+                    if (Number.isFinite(kw)) {
+                      patch.elect_power_charges = String((kw * 5).toFixed(2));
+                    }
+
+                    if (Number.isFinite(hours)) {
+                      const downtime = category === "conventional" ? 0.07 : 0.15;
+                      patch.utilization_hrs_year = String((hours * (1 - downtime)).toFixed(2));
+                    }
+
+                    if (Number.isFinite(investment) && Number.isFinite(kw) && Number.isFinite(hours)) {
+                      try {
+                        const result = await calculateMhrFromInputs({
+                          investment_cost: investment,
+                          power_rating_kw: kw,
+                          available_hours_per_annum: hours,
+                          machine_category: category,
+                        });
+                        if (result?.total_machine_hour_rate != null) {
+                          patch.machine_hr_rate = String(result.total_machine_hour_rate);
+                        }
+                      } catch {
+                        // ignore
+                      }
+                    }
+
+                    onChange(patch);
+                  }}
+                  placeholder="Electrical Power Rating"
+                  className="px-2.5 py-1.5 rounded-md border border-slate-300 text-xs md:text-sm bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500"
+                />
+              ),
+            },
+            {
+              key: "elect_power_charges",
+              label: "Electrical Power Charges",
+              renderInput: ({ value }) => (
+                <input
+                  type="text"
+                  value={value ?? ""}
+                  readOnly
+                  placeholder="Electrical Power Charges"
+                  className="px-2.5 py-1.5 rounded-md border border-slate-200 text-xs md:text-sm bg-slate-50 text-slate-700"
+                />
+              ),
+            },
+            {
+              key: "available_hrs_per_annum",
+              label: "Available Hrs/Annum",
+              renderInput: ({ value, onChange, form }) => (
+                <input
+                  type="number"
+                  value={value}
+                  onChange={async (e) => {
+                    const nextHours = e.target.value;
+                    const patch = { available_hrs_per_annum: nextHours };
+
+                    const investment = parseFloat(form.investment_cost);
+                    const kw = parseFloat(form.elect_power_rating);
+                    const hours = parseFloat(nextHours);
+                    const category = inferMachineCategory(form.machine_id);
+
+                    if (Number.isFinite(kw)) {
+                      patch.elect_power_charges = String((kw * 5).toFixed(2));
+                    }
+
+                    if (Number.isFinite(hours)) {
+                      const downtime = category === "conventional" ? 0.07 : 0.15;
+                      patch.utilization_hrs_year = String((hours * (1 - downtime)).toFixed(2));
+                    }
+
+                    if (Number.isFinite(investment) && Number.isFinite(kw) && Number.isFinite(hours)) {
+                      try {
+                        const result = await calculateMhrFromInputs({
+                          investment_cost: investment,
+                          power_rating_kw: kw,
+                          available_hours_per_annum: hours,
+                          machine_category: category,
+                        });
+                        if (result?.total_machine_hour_rate != null) {
+                          patch.machine_hr_rate = String(result.total_machine_hour_rate);
+                        }
+                      } catch {
+                        // ignore
+                      }
+                    }
+
+                    onChange(patch);
+                  }}
+                  placeholder="Available Hrs/Annum"
+                  className="px-2.5 py-1.5 rounded-md border border-slate-300 text-xs md:text-sm bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500"
+                />
+              ),
+            },
+            {
+              key: "utilization_hrs_year",
+              label: "Utilization Hrs/Year",
+              renderInput: ({ value }) => (
+                <input
+                  type="text"
+                  value={value ?? ""}
+                  readOnly
+                  placeholder="Utilization Hrs/Year"
+                  className="px-2.5 py-1.5 rounded-md border border-slate-200 text-xs md:text-sm bg-slate-50 text-slate-700"
+                />
+              ),
+            },
+            {
+              key: "machine_hr_rate",
+              label: "Machine Hour Rate",
+              renderInput: ({ value }) => (
+                <input
+                  type="text"
+                  value={value ?? ""}
+                  readOnly
+                  placeholder="Machine Hour Rate"
+                  className="px-2.5 py-1.5 rounded-md border border-slate-200 text-xs md:text-sm bg-slate-50 text-slate-700"
+                />
+              ),
+            },
           ]}
           initialFormState={{
             op_type_id: "",
