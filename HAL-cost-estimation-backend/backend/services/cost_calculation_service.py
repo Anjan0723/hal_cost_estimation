@@ -309,7 +309,9 @@ class CostCalculationService:
         depreciation_cost_per_hour = (investment_cost * self.ANNUAL_DEPRECIATION_RATE) / utilization_hours
         machine_utilization_cost_per_hour = depreciation_cost_per_hour + power_charges_per_hour
         
-        return machine_utilization_cost_per_hour
+        total_machine_hour_rate = machine_utilization_cost_per_hour * (1 + self.MAINTENANCE_RATE)
+        
+        return total_machine_hour_rate
     
     def get_machine_hour_rate(
         self,

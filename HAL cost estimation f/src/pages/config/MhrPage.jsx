@@ -141,8 +141,12 @@ function MhrPage() {
                           available_hours_per_annum: hours,
                           machine_category: category,
                         });
-                        if (result?.total_machine_hour_rate != null) {
-                          patch.machine_hr_rate = String(result.total_machine_hour_rate);
+                        const mhrNoMaint = result?.total_machine_hour_rate_without_maintenance;
+                        const mhr = result?.total_machine_hour_rate;
+                        if (mhrNoMaint != null) {
+                          patch.machine_hr_rate = String(mhrNoMaint);
+                        } else if (mhr != null) {
+                          patch.machine_hr_rate = String(mhr);
                         }
                       } catch {
                         // ignore
@@ -195,8 +199,12 @@ function MhrPage() {
                           available_hours_per_annum: hours,
                           machine_category: category,
                         });
-                        if (result?.total_machine_hour_rate != null) {
-                          patch.machine_hr_rate = String(result.total_machine_hour_rate);
+                        const mhrNoMaint = result?.total_machine_hour_rate_without_maintenance;
+                        const mhr = result?.total_machine_hour_rate;
+                        if (mhrNoMaint != null) {
+                          patch.machine_hr_rate = String(mhrNoMaint);
+                        } else if (mhr != null) {
+                          patch.machine_hr_rate = String(mhr);
                         }
                       } catch {
                         // ignore
@@ -243,8 +251,12 @@ function MhrPage() {
                           available_hours_per_annum: hours,
                           machine_category: category,
                         });
-                        if (result?.total_machine_hour_rate != null) {
-                          patch.machine_hr_rate = String(result.total_machine_hour_rate);
+                        const mhrNoMaint = result?.total_machine_hour_rate_without_maintenance;
+                        const mhr = result?.total_machine_hour_rate;
+                        if (mhrNoMaint != null) {
+                          patch.machine_hr_rate = String(mhrNoMaint);
+                        } else if (mhr != null) {
+                          patch.machine_hr_rate = String(mhr);
                         }
                       } catch {
                         // ignore
@@ -304,8 +316,12 @@ function MhrPage() {
                           available_hours_per_annum: hours,
                           machine_category: category,
                         });
-                        if (result?.total_machine_hour_rate != null) {
-                          patch.machine_hr_rate = String(result.total_machine_hour_rate);
+                        const mhrNoMaint = result?.total_machine_hour_rate_without_maintenance;
+                        const mhr = result?.total_machine_hour_rate;
+                        if (mhrNoMaint != null) {
+                          patch.machine_hr_rate = String(mhrNoMaint);
+                        } else if (mhr != null) {
+                          patch.machine_hr_rate = String(mhr);
                         }
                       } catch {
                         // ignore

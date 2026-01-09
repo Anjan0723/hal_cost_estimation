@@ -101,7 +101,8 @@ def calculate_mhr_from_inputs(
     machine_utilization_cost_per_hour = depreciation_per_hour + power_charges_per_hour
     
     # Calculate total machine hour rate (B)
-    total_mhr = machine_utilization_cost_per_hour
+    total_mhr_without_maintenance = machine_utilization_cost_per_hour
+    total_mhr = total_mhr_without_maintenance * (1 + service.MAINTENANCE_RATE)
     
     return {
         "investment_cost": investment_cost,
@@ -114,13 +115,15 @@ def calculate_mhr_from_inputs(
         "power_charges_per_hour": round(power_charges_per_hour, 2),
         "depreciation_per_hour": round(depreciation_per_hour, 2),
         "machine_utilization_cost_per_hour": round(machine_utilization_cost_per_hour, 2),
-        "maintenance_rate": 0,
+        "maintenance_rate": service.MAINTENANCE_RATE,
+        "total_machine_hour_rate_without_maintenance": round(total_mhr_without_maintenance, 2),
         "total_machine_hour_rate": round(total_mhr, 2),
         "calculation_steps": {
             "step_1_power_charges": f"P = {power_rating_kw} kW × 5 Rs/unit = {power_charges_per_hour:.2f} Rs/hour",
             "step_2_utilization": f"U = {available_hours_per_annum} - ({downtime_rate*100}% of {available_hours_per_annum}) = {utilization_hours:.2f} hours",
             "step_3_depreciation": f"Depreciation = ({investment_cost} × 10%) / {utilization_hours:.2f} = {depreciation_per_hour:.2f} Rs/hour",
             "step_4_machine_utilization": f"M = {depreciation_per_hour:.2f} + {power_charges_per_hour:.2f} = {machine_utilization_cost_per_hour:.2f} Rs/hour",
-            "step_5_total_mhr": f"B = {machine_utilization_cost_per_hour:.2f} Rs/hour"
+            "step_5_total_mhr": f"B = {machine_utilization_cost_per_hour:.2f} × 1.05 = {total_mhr:.2f} Rs/hour",
+            "step_5_total_mhr_without_maintenance": f"B (without maintenance) = {total_mhr_without_maintenance:.2f} Rs/hour",
         }
     }
