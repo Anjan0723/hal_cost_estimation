@@ -53,6 +53,96 @@ function isPdfPath(filePath) {
   return value.endsWith(".pdf");
 }
 
+function PdfPreview({ url, alt, className, onLoad }) {
+  const [dataUrl, setDataUrl] = useState("");
+  const [failed, setFailed] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let loadingTask;
+    let timeoutId;
+
+    const render = async () => {
+      try {
+        setFailed(false);
+        setDataUrl("");
+        setLoading(true);
+
+        if (!url) {
+          setFailed(true);
+          return;
+        }
+
+        loadingTask = pdfjsLib.getDocument({
+          url,
+          disableRange: true,
+          disableStream: true,
+          disableAutoFetch: true,
+        });
+
+        const pdfPromise = loadingTask.promise;
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error("PDF preview timeout")), 20000);
+        });
+
+        const pdf = await Promise.race([pdfPromise, timeoutPromise]);
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1.0 });
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+
+        if (!context) throw new Error("Canvas context not available");
+
+        await page.render({ canvasContext: context, viewport }).promise;
+        const imgData = canvas.toDataURL("image/png");
+        if (!cancelled) setDataUrl(imgData);
+      } catch (e) {
+        if (!cancelled) setFailed(true);
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    render();
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      if (loadingTask?.destroy) {
+        try {
+          loadingTask.destroy();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, [url]);
+
+  if (failed) {
+    return (
+      <div className="text-xs text-slate-500 space-y-2">
+        <div>Preview not available for this drawing.</div>
+        {url && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sky-600 hover:text-sky-700 underline"
+          >
+            Open drawing
+          </a>
+        )}
+      </div>
+    );
+  }
+  if (loading && !dataUrl) return <div className="text-xs text-slate-400">Loading preview...</div>;
+  return <img src={dataUrl} alt={alt} className={className} onLoad={onLoad} />;
+}
+
 export default function PartCostEstimationPage({ onChange, projectId, partId }) {
   const [projectData, setProjectData] = useState(null);
   const [part, setPart] = useState(null);
@@ -118,98 +208,6 @@ export default function PartCostEstimationPage({ onChange, projectId, partId }) 
       if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
     };
   }, [pdfPreviewUrl]);
-
-  const PdfPreview = ({ url, alt, className, onLoad }) => {
-    const [dataUrl, setDataUrl] = useState("");
-    const [failed, setFailed] = useState(false);
-    const [loading, setLoading] = useState(false);
-
-    useEffect(() => {
-      let cancelled = false;
-      let loadingTask;
-      let timeoutId;
-
-      const render = async () => {
-        try {
-          setFailed(false);
-          setDataUrl("");
-          setLoading(true);
-
-          if (!url) {
-            setFailed(true);
-            return;
-          }
-
-          // Large PDFs may hang if the server doesn't support range requests properly.
-          // Force a simple full download + add a timeout.
-          loadingTask = pdfjsLib.getDocument({
-            url,
-            disableRange: true,
-            disableStream: true,
-            disableAutoFetch: true,
-          });
-
-          const pdfPromise = loadingTask.promise;
-          const timeoutPromise = new Promise((_, reject) => {
-            timeoutId = setTimeout(() => reject(new Error("PDF preview timeout")), 20000);
-          });
-
-          const pdf = await Promise.race([pdfPromise, timeoutPromise]);
-          const page = await pdf.getPage(1);
-          const viewport = page.getViewport({ scale: 1.0 });
-          const canvas = document.createElement("canvas");
-          const context = canvas.getContext("2d");
-
-          canvas.width = Math.floor(viewport.width);
-          canvas.height = Math.floor(viewport.height);
-
-          if (!context) throw new Error("Canvas context not available");
-
-          await page.render({ canvasContext: context, viewport }).promise;
-          const imgData = canvas.toDataURL("image/png");
-          if (!cancelled) setDataUrl(imgData);
-        } catch (e) {
-          if (!cancelled) setFailed(true);
-        } finally {
-          if (timeoutId) clearTimeout(timeoutId);
-          if (!cancelled) setLoading(false);
-        }
-      };
-
-      render();
-      return () => {
-        cancelled = true;
-        if (timeoutId) clearTimeout(timeoutId);
-        if (loadingTask?.destroy) {
-          try {
-            loadingTask.destroy();
-          } catch {
-            // ignore
-          }
-        }
-      };
-    }, [url]);
-
-    if (failed) {
-      return (
-        <div className="text-xs text-slate-500 space-y-2">
-          <div>Preview not available for this drawing.</div>
-          {url && (
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sky-600 hover:text-sky-700 underline"
-            >
-              Open drawing
-            </a>
-          )}
-        </div>
-      );
-    }
-    if (loading && !dataUrl) return <div className="text-xs text-slate-400">Loading preview...</div>;
-    return <img src={dataUrl} alt={alt} className={className} onLoad={onLoad} />;
-  };
 
   useEffect(() => {
     let cancelled = false;

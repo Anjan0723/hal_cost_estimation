@@ -8,6 +8,60 @@ import api from "../api/client";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
+function PdfPreview({ url, alt, className }) {
+  const [dataUrl, setDataUrl] = useState("");
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const render = async () => {
+      try {
+        setFailed(false);
+        setDataUrl("");
+
+        if (!url) {
+          setFailed(true);
+          return;
+        }
+
+        const loadingTask = pdfjsLib.getDocument({ url });
+        const pdf = await loadingTask.promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+
+        if (!context) {
+          throw new Error("Canvas context not available");
+        }
+
+        await page.render({ canvasContext: context, viewport }).promise;
+
+        const imgData = canvas.toDataURL("image/png");
+        if (!cancelled) setDataUrl(imgData);
+      } catch (e) {
+        if (!cancelled) setFailed(true);
+      }
+    };
+
+    render();
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+
+  if (failed) return null;
+  if (!dataUrl) {
+    return <div className="text-xs text-slate-400">Loading preview...</div>;
+  }
+
+  return <img src={dataUrl} alt={alt} className={className} />;
+}
+
 function ProjectDetailPage({ onChange, projectId }) {
   const [projectData, setProjectData] = useState(null);
   const [parts, setParts] = useState([]);
@@ -33,62 +87,6 @@ function ProjectDetailPage({ onChange, projectId }) {
   useEffect(() => {
     pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
   }, []);
-
-  const PdfPreview = ({ url, alt, className }) => {
-    const [dataUrl, setDataUrl] = useState("");
-    const [failed, setFailed] = useState(false);
-
-    useEffect(() => {
-      let cancelled = false;
-
-      const render = async () => {
-        try {
-          setFailed(false);
-          setDataUrl("");
-
-          if (!url) {
-            setFailed(true);
-            return;
-          }
-
-          const loadingTask = pdfjsLib.getDocument({ url });
-          const pdf = await loadingTask.promise;
-          const page = await pdf.getPage(1);
-          const viewport = page.getViewport({ scale: 1.5 });
-          const canvas = document.createElement("canvas");
-          const context = canvas.getContext("2d");
-
-          canvas.width = Math.floor(viewport.width);
-          canvas.height = Math.floor(viewport.height);
-
-          if (!context) {
-            throw new Error("Canvas context not available");
-          }
-
-          await page.render({ canvasContext: context, viewport }).promise;
-
-          const imgData = canvas.toDataURL("image/png");
-          if (!cancelled) setDataUrl(imgData);
-        } catch (e) {
-          if (!cancelled) setFailed(true);
-        }
-      };
-
-      render();
-      return () => {
-        cancelled = true;
-      };
-    }, [url]);
-
-    if (failed) return null;
-    if (!dataUrl) {
-      return (
-        <div className="text-xs text-slate-400">Loading preview...</div>
-      );
-    }
-
-    return <img src={dataUrl} alt={alt} className={className} />;
-  };
 
   useEffect(() => {
     if (projectId) {
